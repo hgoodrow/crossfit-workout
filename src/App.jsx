@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
 
 // ---------------------------------------------------------------------------
@@ -8,13 +8,16 @@ import {
 // Storage: localStorage (persists on-device). Mobile-first responsive.
 // ---------------------------------------------------------------------------
 
-const ACCENT = "#ff5436";
+const ACCENT = "#ff5a3c";
 const GOLD = "#e8b64c";
-const INK = "#0e1015";
-const PANEL = "#15181f";
-const LINE = "#252a34";
-const CHALK = "#e8e6df";
-const MUTE = "#8b8f9a";
+const INK = "#0b0d12";
+const PANEL = "#16191f";
+const LINE = "rgba(255,255,255,0.08)";
+const CHALK = "#eceef2";
+const MUTE = "#8b9099";
+const GREEN = "#6ee79f";
+const SURFACE = "linear-gradient(180deg,#181b22,#13151b)";
+const ACCENT_GLOW = "0 0 0 1px rgba(255,90,60,.08), 0 10px 30px rgba(255,90,60,.06)";
 
 // localStorage wrapper matching the prior async storage shape
 const store = {
@@ -200,15 +203,19 @@ export default function App() {
               const good = d == null ? null : m.invert ? d < 0 : d > 0;
               return (
                 <div key={m.key} style={card()}>
-                  <div style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, color: MUTE, textTransform: "uppercase" }}>{m.label}</div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 8 }}>
-                    <span style={{ fontFamily: "var(--display)", fontSize: 34, color: CHALK, lineHeight: 1 }}>{latest?.[m.key] ?? "—"}</span>
-                    <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: MUTE }}>{m.unit}</span>
+                  <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>{m.label}</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 9 }}>
+                    <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 32, color: CHALK, lineHeight: 1 }}>{latest?.[m.key] ?? "—"}</span>
+                    <span style={{ fontFamily: "var(--body)", fontSize: 13, color: MUTE }}>{m.unit}</span>
                   </div>
                   {d != null && (
-                    <div style={{ fontFamily: "var(--mono)", fontSize: 12, marginTop: 6, color: good ? "#7ad17a" : ACCENT }}>
-                      {d > 0 ? "▲" : d < 0 ? "▼" : "■"} {Math.abs(d)}{m.unit}
-                    </div>
+                    <span style={{
+                      display: "inline-flex", alignItems: "center", gap: 4, marginTop: 10,
+                      fontFamily: "var(--mono)", fontSize: 11, padding: "3px 9px", borderRadius: 999,
+                      background: good ? "rgba(110,231,159,0.13)" : "rgba(255,90,60,0.14)", color: good ? GREEN : ACCENT,
+                    }}>
+                      {d > 0 ? "↑" : d < 0 ? "↓" : "■"} {Math.abs(d)}{m.unit}
+                    </span>
                   )}
                 </div>
               );
@@ -268,31 +275,32 @@ export default function App() {
             const current = step.id === ladderState.current && !done;
             return (
               <div key={step.id} onClick={() => toggleLadder(step.id)} style={{
-                display: "flex", gap: 14, alignItems: "flex-start", padding: "16px 16px", marginBottom: 10,
-                background: current ? "rgba(255,84,54,0.06)" : PANEL, border: `1px solid ${current ? ACCENT : LINE}`,
-                borderRadius: 4, cursor: "pointer",
+                display: "flex", gap: 14, alignItems: "flex-start", padding: "16px", marginBottom: 10,
+                background: current ? "linear-gradient(180deg,#1d1714,#161318)" : SURFACE,
+                border: `1px solid ${current ? "rgba(255,90,60,0.4)" : LINE}`, borderRadius: 16, cursor: "pointer",
+                boxShadow: current ? ACCENT_GLOW : "0 6px 20px rgba(0,0,0,0.25)",
               }}>
                 <div style={{
                   width: 32, height: 32, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center",
-                  fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700,
-                  background: done ? "#7ad17a" : current ? ACCENT : "transparent",
-                  color: done || current ? INK : MUTE, border: `1.5px solid ${done ? "#7ad17a" : current ? ACCENT : LINE}`,
+                  fontFamily: "var(--mono)", fontSize: 14, fontWeight: 500,
+                  background: done ? "linear-gradient(180deg,#7ee0a3,#56c98a)" : current ? "linear-gradient(180deg,#ff6a4d,#ff4f30)" : "transparent",
+                  color: done || current ? "#0b0d12" : MUTE, border: `1.5px solid ${done ? GREEN : current ? ACCENT : LINE}`,
                 }}>{done ? "✓" : step.id}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                    <span style={{ fontFamily: "var(--display)", fontSize: 17, color: done ? MUTE : CHALK, textDecoration: done ? "line-through" : "none" }}>{step.name}</span>
+                    <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 16, color: done ? MUTE : CHALK, textDecoration: done ? "line-through" : "none" }}>{step.name}</span>
                     <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: GOLD }}>{step.target}</span>
                   </div>
                   <div style={{ color: MUTE, fontSize: 13, marginTop: 4, fontFamily: "var(--body)" }}>{step.note}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginTop: 8 }}>
                     {[["sets", step.sets], ["reps", step.reps], ["freq", step.freq]].map(([k, v]) => (
                       <span key={k} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
-                        <span style={{ color: "#5f6470", letterSpacing: 1, textTransform: "uppercase" }}>{k} </span>
+                        <span style={{ color: "#6b7078" }}>{k} </span>
                         <span style={{ color: done ? MUTE : CHALK }}>{v}</span>
                       </span>
                     ))}
                   </div>
-                  {current && <div style={{ marginTop: 8, fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, color: ACCENT, textTransform: "uppercase" }}>◆ Current focus</div>}
+                  {current && <div style={{ marginTop: 8, fontFamily: "var(--body)", fontSize: 12, fontWeight: 500, color: ACCENT }}>◆ Current focus</div>}
                 </div>
               </div>
             );
@@ -316,23 +324,23 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{ ...card(), marginBottom: 14, borderColor: ACCENT }}>
+          <div style={{ ...card(), marginBottom: 14, background: "linear-gradient(180deg,#1d1714,#161318)", border: `1px solid rgba(255,90,60,0.4)`, boxShadow: ACCENT_GLOW }}>
             <SectionLabel accent>Main work · current rung</SectionLabel>
             {(() => {
               const r = LADDER[ladderState.current] || LADDER[0];
               return (
                 <>
-                  <div style={{ fontFamily: "var(--display)", fontSize: 18, color: CHALK, marginBottom: 4 }}>{r.name}</div>
+                  <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 17, color: CHALK, marginBottom: 4 }}>{r.name}</div>
                   <div style={{ color: MUTE, fontSize: 13, marginBottom: 14, fontFamily: "var(--body)" }}>{r.note}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
                     {[["Sets", r.sets], ["Reps / time", r.reps], ["Frequency", r.freq]].map(([k, v]) => (
-                      <div key={k} style={{ background: INK, border: `1px solid ${LINE}`, borderRadius: 4, padding: "10px 12px" }}>
-                        <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: 1, color: MUTE, textTransform: "uppercase" }}>{k}</div>
+                      <div key={k} style={{ background: INK, border: `1px solid ${LINE}`, borderRadius: 10, padding: "10px 12px" }}>
+                        <div style={{ fontFamily: "var(--body)", fontSize: 11, color: MUTE }}>{k}</div>
                         <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: CHALK, marginTop: 5 }}>{v}</div>
                       </div>
                     ))}
                   </div>
-                  <div style={{ marginTop: 12, fontFamily: "var(--mono)", fontSize: 11, color: MUTE }}>
+                  <div style={{ marginTop: 12, fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>
                     Advances automatically as you tick rungs on <span style={{ color: ACCENT }}>Progression</span>.
                   </div>
                 </>
@@ -369,12 +377,12 @@ export default function App() {
           {sorted.length === 0 ? (
             <div style={{ textAlign: "center", padding: 50, color: MUTE, fontFamily: "var(--mono)" }}>No sessions yet.</div>
           ) : (
-            <div style={{ ...card(), padding: 0, overflowX: "auto" }}>
+            <div style={{ ...card(), padding: 0, overflow: "hidden", overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--mono)", fontSize: 13 }}>
                 <thead>
-                  <tr style={{ background: INK }}>
+                  <tr style={{ background: "#13151b" }}>
                     {["Date", "Hold", "Dist", "Pain", "Ext", "Wrap", "Notes", ""].map((h) => (
-                      <th key={h} style={{ textAlign: "left", padding: "12px 12px", color: MUTE, fontWeight: 500, letterSpacing: 1, textTransform: "uppercase", fontSize: 11 }}>{h}</th>
+                      <th key={h} style={{ textAlign: "left", padding: "12px 12px", color: MUTE, fontWeight: 500, fontSize: 12, fontFamily: "var(--body)" }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -388,7 +396,7 @@ export default function App() {
                       <td style={td()}>{l.wristExt ?? "—"}{l.wristExt != null && "°"}</td>
                       <td style={td()}>{l.wristWrap ? "✓" : ""}</td>
                       <td style={{ ...td(), fontFamily: "var(--body)", color: MUTE, maxWidth: 220, whiteSpace: "normal" }}>{l.notes || "—"}</td>
-                      <td style={td()}><button onClick={() => delLog(l.id)} style={{ background: "none", border: "none", color: ACCENT, cursor: "pointer", fontSize: 18 }}>×</button></td>
+                      <td style={td()}><button className="del" onClick={() => delLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>×</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -409,13 +417,18 @@ function Shell({ children }) {
   return (
     <div style={{ minHeight: "100vh", background: INK, color: CHALK, paddingTop: "env(safe-area-inset-top)" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap');
-        :root{--display:'Archivo Black',sans-serif;--body:'Spline Sans',sans-serif;--mono:'Spline Sans Mono',monospace;}
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
+        :root{--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;}
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
         html,body{background:${INK};-webkit-text-size-adjust:100%;}
         input,textarea{font-size:16px;}
         input::placeholder,textarea::placeholder{color:#4a4f5a;}
-        ::selection{background:${ACCENT};color:${INK};}
+        input:focus,textarea:focus{border-color:rgba(255,90,60,.55)!important;box-shadow:0 0 0 3px rgba(255,90,60,.12);}
+        button{transition:transform .08s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;}
+        button:active{transform:scale(.985);}
+        .del{color:${MUTE};transition:color .15s;}
+        .del:hover{color:${ACCENT};}
+        ::selection{background:${ACCENT};color:#fff;}
       `}</style>
       <div style={{ fontFamily: "var(--body)", maxWidth: 1040, margin: "0 auto" }}>{children}</div>
     </div>
@@ -426,18 +439,24 @@ function Header({ tab, setTab }) {
   const tabs = [["dash", "Dashboard"], ["program", "Program"], ["log", "+ Log"], ["ladder", "Progression"], ["history", "History"]];
   return (
     <div style={{ padding: "28px 16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontFamily: "var(--display)", fontSize: 30, letterSpacing: -1, lineHeight: 1 }}>CROSSFIT WORKOUT<span style={{ color: ACCENT }}>.</span></h1>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 11, color: MUTE, letterSpacing: 1 }}>handstand → HSPU log</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h1 style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 26, letterSpacing: -0.5, lineHeight: 1, color: CHALK }}>Crossfit Workout<span style={{ color: ACCENT }}>.</span></h1>
+        <span style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>handstand → HSPU log</span>
       </div>
-      <div style={{ display: "flex", gap: 2, marginTop: 22, borderBottom: `1px solid ${LINE}`, overflowX: "auto" }}>
-        {tabs.map(([id, label]) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            background: "none", border: "none", cursor: "pointer", padding: "10px 14px", whiteSpace: "nowrap",
-            fontFamily: "var(--mono)", fontSize: 13, color: tab === id ? CHALK : MUTE,
-            borderBottom: `2px solid ${tab === id ? ACCENT : "transparent"}`, marginBottom: -1,
-          }}>{label}</button>
-        ))}
+      <div style={{ marginTop: 20, overflowX: "auto" }}>
+        <div style={{ display: "inline-flex", gap: 3, background: "#111319", border: `1px solid ${LINE}`, borderRadius: 14, padding: 3 }}>
+          {tabs.map(([id, label]) => {
+            const on = tab === id;
+            return (
+              <button key={id} onClick={() => setTab(id)} style={{
+                background: on ? "linear-gradient(180deg,#23262f,#1b1e26)" : "transparent",
+                border: "none", cursor: "pointer", whiteSpace: "nowrap", padding: "8px 15px", borderRadius: 10,
+                fontFamily: "var(--body)", fontSize: 13, fontWeight: on ? 500 : 400, color: on ? CHALK : MUTE,
+                boxShadow: on ? "0 1px 0 rgba(255,255,255,.06) inset" : "none",
+              }}>{label}</button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -446,8 +465,8 @@ function Header({ tab, setTab }) {
 function ChartPanel({ title, sub, children }) {
   return (
     <div style={card()}>
-      <div style={{ fontFamily: "var(--display)", fontSize: 15, marginBottom: 2 }}>{title}</div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: 11, color: MUTE, marginBottom: 14 }}>{sub}</div>
+      <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 15, color: CHALK, marginBottom: 2 }}>{title}</div>
+      <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE, marginBottom: 14 }}>{sub}</div>
       <div style={{ height: 180 }}>{children}</div>
     </div>
   );
@@ -455,39 +474,46 @@ function ChartPanel({ title, sub, children }) {
 
 function Chart({ data, keyName, color, ref60, goal }) {
   const pts = data.filter((d) => d[keyName] != null).map((d) => ({ date: fmtDate(d.date), v: d[keyName] }));
-  if (pts.length === 0) return <div style={{ height: "100%", display: "grid", placeItems: "center", color: MUTE, fontFamily: "var(--mono)", fontSize: 12 }}>no data</div>;
+  if (pts.length === 0) return <div style={{ height: "100%", display: "grid", placeItems: "center", color: MUTE, fontFamily: "var(--body)", fontSize: 12 }}>no data yet</div>;
+  const gid = `grad-${keyName}`;
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={pts} margin={{ top: 6, right: 10, left: -18, bottom: 0 }}>
-        <CartesianGrid stroke={LINE} strokeDasharray="2 4" vertical={false} />
-        <XAxis dataKey="date" tick={{ fill: MUTE, fontSize: 11 }} stroke={LINE} />
-        <YAxis tick={{ fill: MUTE, fontSize: 11 }} stroke={LINE} />
-        <Tooltip contentStyle={{ background: INK, border: `1px solid ${LINE}`, borderRadius: 4, fontSize: 12, color: CHALK }} />
-        {ref60 && <ReferenceLine y={60} stroke={GOLD} strokeDasharray="4 4" label={{ value: "60s", fill: GOLD, fontSize: 10, position: "insideTopRight" }} />}
-        {goal && <ReferenceLine y={goal} stroke="#7ad17a" strokeDasharray="4 4" label={{ value: `${goal}"`, fill: "#7ad17a", fontSize: 10, position: "insideBottomRight" }} />}
-        <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2.5} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
-      </LineChart>
+      <AreaChart data={pts} margin={{ top: 6, right: 10, left: -14, bottom: 0 }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="rgba(255,255,255,0.05)" strokeDasharray="2 6" vertical={false} />
+        <XAxis dataKey="date" tick={{ fill: MUTE, fontSize: 11 }} axisLine={false} tickLine={false} />
+        <YAxis tick={{ fill: MUTE, fontSize: 11 }} axisLine={false} tickLine={false} width={30} />
+        <Tooltip contentStyle={{ background: "#13151b", border: `1px solid ${LINE}`, borderRadius: 12, fontSize: 12, color: CHALK }} cursor={{ stroke: "rgba(255,255,255,0.12)" }} />
+        {ref60 && <ReferenceLine y={60} stroke={GOLD} strokeDasharray="4 6" strokeOpacity={0.6} label={{ value: "60s", fill: GOLD, fontSize: 10, position: "insideTopRight" }} />}
+        {goal && <ReferenceLine y={goal} stroke={GREEN} strokeDasharray="4 6" strokeOpacity={0.6} label={{ value: `${goal}"`, fill: GREEN, fontSize: 10, position: "insideBottomRight" }} />}
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2.5} strokeLinecap="round" fill={`url(#${gid})`} dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+      </AreaChart>
     </ResponsiveContainer>
   );
 }
 
 function SectionLabel({ children, accent }) {
   return (
-    <div style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: accent ? ACCENT : MUTE, marginBottom: 12 }}>{children}</div>
+    <div style={{ fontFamily: "var(--body)", fontSize: 12, fontWeight: 500, color: accent ? ACCENT : MUTE, marginBottom: 12 }}>{children}</div>
   );
 }
 
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 16 }}>
-      <label style={{ display: "block", fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, color: MUTE, textTransform: "uppercase", marginBottom: 6 }}>{label}</label>
+      <label style={{ display: "block", fontFamily: "var(--body)", fontSize: 12, color: MUTE, marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   );
 }
 
-const card = (pad) => ({ background: PANEL, border: `1px solid ${LINE}`, borderRadius: 4, padding: pad ? 22 : 18 });
-const inp = () => ({ width: "100%", background: INK, border: `1px solid ${LINE}`, borderRadius: 4, padding: "11px 12px", color: CHALK, fontFamily: "var(--mono)", fontSize: 16, outline: "none" });
+const card = (pad) => ({ background: SURFACE, border: `1px solid ${LINE}`, borderRadius: 18, padding: pad ? 22 : 18, boxShadow: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 20px rgba(0,0,0,0.25)" });
+const inp = () => ({ width: "100%", background: INK, border: `1px solid ${LINE}`, borderRadius: 12, padding: "12px 13px", color: CHALK, fontFamily: "var(--mono)", fontSize: 16, outline: "none", transition: "border-color .15s, box-shadow .15s" });
 const td = () => ({ padding: "11px 12px", color: CHALK, whiteSpace: "nowrap" });
-const primaryBtn = () => ({ width: "100%", background: ACCENT, border: "none", borderRadius: 4, padding: "14px", color: INK, fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" });
-const ghostBtn = () => ({ background: "transparent", border: `1px solid ${LINE}`, borderRadius: 4, padding: "9px 14px", color: CHALK, fontFamily: "var(--mono)", fontSize: 13, cursor: "pointer" });
+const primaryBtn = () => ({ width: "100%", background: "linear-gradient(180deg,#ff6a4d,#ff4f30)", border: "none", borderRadius: 12, padding: "14px", color: "#fff", fontFamily: "var(--body)", fontSize: 15, fontWeight: 500, cursor: "pointer", boxShadow: "0 6px 18px rgba(255,90,60,.28)" });
+const ghostBtn = () => ({ background: "transparent", border: `1px solid ${LINE}`, borderRadius: 12, padding: "9px 15px", color: CHALK, fontFamily: "var(--body)", fontSize: 13, cursor: "pointer" });
