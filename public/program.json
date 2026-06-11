@@ -1,0 +1,33 @@
+{
+  "ladder": [
+    { "id": 0, "name": "Chest-to-Wall Hold", "note": "Hands 6–8\" from wall, hollow body", "target": "60s @ ≤8\"",
+      "sets": "3–4 holds", "reps": "build to 60s", "freq": "2–3×/week" },
+    { "id": 1, "name": "Freestanding Hold", "note": "Kick up, find balance", "target": "30s",
+      "sets": "5–10 min practice", "reps": "5–10s → 30s holds", "freq": "daily (skill)" },
+    { "id": 2, "name": "Negative HSPU", "note": "3–5s controlled descent", "target": "3 reps",
+      "sets": "3–4 sets", "reps": "3 reps @ 3–5s descent", "freq": "2–3×/week" },
+    { "id": 3, "name": "Strict HSPU (no deficit)", "note": "Head to floor → lockout", "target": "5 reps",
+      "sets": "accumulate sets", "reps": "start 1 → sets of 3–5", "freq": "2–3×/week" },
+    { "id": 4, "name": "Deficit Strict HSPU", "note": "Plates / parallettes", "target": "5 reps",
+      "sets": "sets of 3–5", "reps": "progressive ROM", "freq": "2–3×/week" },
+    { "id": 5, "name": "Kipping HSPU", "note": "Efficient once strict is owned", "target": "—",
+      "sets": "conditioning volume", "reps": "once 5+ strict owned", "freq": "as programmed" }
+  ],
+  "cadence": [
+    ["Strength & holds", "2–3× per week"],
+    ["Balance / freestanding", "5–10 min daily"],
+    ["Wrist + shoulder prep", "every session"],
+    ["Expected timeline", "8–12 weeks"]
+  ],
+  "warmup": [
+    "Wrist circles — both directions, ~30s each",
+    "Prayer stretch + reverse prayer — ease into extension and flexion",
+    "Quadruped rocking — rock forward over extended wrists, add load progressively",
+    "Banded overhead stretch + wall slides — open shoulder flexion before loading"
+  ],
+  "mobility": [
+    "Thoracic extension — foam roller over a rolled towel at mid-back; cat-cow with reach",
+    "Shoulder flexion — banded overhead stretch, wall slide with overpressure",
+    "Hollow body holds — floor, arms overhead, low back flat, 30–45s. Own this before inverting"
+  ]
+}

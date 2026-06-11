@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
 } from "recharts";
@@ -25,23 +25,26 @@ const store = {
   set: async (k, v) => { try { localStorage.setItem(k, v); } catch {} },
 };
 
-const LADDER = [
-  { id: 0, name: "Chest-to-Wall Hold", note: "Hands 6–8\" from wall, hollow body", target: "60s @ ≤8\"",
-    sets: "3–4 holds", reps: "build to 60s", freq: "2–3×/week" },
-  { id: 1, name: "Freestanding Hold", note: "Kick up, find balance", target: "30s",
-    sets: "5–10 min practice", reps: "5–10s → 30s holds", freq: "daily (skill)" },
-  { id: 2, name: "Negative HSPU", note: "3–5s controlled descent", target: "3 reps",
-    sets: "3–4 sets", reps: "3 reps @ 3–5s descent", freq: "2–3×/week" },
-  { id: 3, name: "Strict HSPU (no deficit)", note: "Head to floor → lockout", target: "5 reps",
-    sets: "accumulate sets", reps: "start 1 → sets of 3–5", freq: "2–3×/week" },
-  { id: 4, name: "Deficit Strict HSPU", note: "Plates / parallettes", target: "5 reps",
-    sets: "sets of 3–5", reps: "progressive ROM", freq: "2–3×/week" },
-  { id: 5, name: "Kipping HSPU", note: "Efficient once strict is owned", target: "—",
-    sets: "conditioning volume", reps: "once 5+ strict owned", freq: "as programmed" },
-];
-
-// The actual training plan behind the log — prescriptions, prep, and mobility.
-const PROGRAM = {
+// The training plan (ladder + program) is loaded at runtime from public/program.json
+// so it can be edited as a flat file without rebuilding the app. This inline copy is
+// only a fallback for the rare case where both the network fetch and the localStorage
+// cache are unavailable (e.g. first-ever load while offline). program.json is the source
+// of truth — keep edits there.
+const FALLBACK_PLAN = {
+  ladder: [
+    { id: 0, name: "Chest-to-Wall Hold", note: "Hands 6–8\" from wall, hollow body", target: "60s @ ≤8\"",
+      sets: "3–4 holds", reps: "build to 60s", freq: "2–3×/week" },
+    { id: 1, name: "Freestanding Hold", note: "Kick up, find balance", target: "30s",
+      sets: "5–10 min practice", reps: "5–10s → 30s holds", freq: "daily (skill)" },
+    { id: 2, name: "Negative HSPU", note: "3–5s controlled descent", target: "3 reps",
+      sets: "3–4 sets", reps: "3 reps @ 3–5s descent", freq: "2–3×/week" },
+    { id: 3, name: "Strict HSPU (no deficit)", note: "Head to floor → lockout", target: "5 reps",
+      sets: "accumulate sets", reps: "start 1 → sets of 3–5", freq: "2–3×/week" },
+    { id: 4, name: "Deficit Strict HSPU", note: "Plates / parallettes", target: "5 reps",
+      sets: "sets of 3–5", reps: "progressive ROM", freq: "2–3×/week" },
+    { id: 5, name: "Kipping HSPU", note: "Efficient once strict is owned", target: "—",
+      sets: "conditioning volume", reps: "once 5+ strict owned", freq: "as programmed" },
+  ],
   cadence: [
     ["Strength & holds", "2–3× per week"],
     ["Balance / freestanding", "5–10 min daily"],
@@ -74,8 +77,11 @@ const todayISO = () => new Date().toISOString().slice(0, 10);
 export default function App() {
   const [logs, setLogs] = useState([]);
   const [ladderState, setLadderState] = useState({ current: 0, done: [] });
+  const [plan, setPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("dash");
+  const [ioMsg, setIoMsg] = useState("");
+  const fileRef = useRef(null);
   const [draft, setDraft] = useState({
     date: todayISO(), holdSec: "", handDist: "", wristPain: "", wristExt: "", wristWrap: false, notes: "",
   });
@@ -86,6 +92,25 @@ export default function App() {
       if (r?.value) { try { setLogs(JSON.parse(r.value)); } catch {} }
       const l = await store.get("hs:ladder");
       if (l?.value) { try { setLadderState(JSON.parse(l.value)); } catch {} }
+
+      // Load the training plan from the flat file, caching it so it survives
+      // offline reloads and the brief post-deploy CDN propagation window.
+      let nextPlan = null;
+      try {
+        const res = await fetch(`${import.meta.env.BASE_URL}program.json`, { cache: "no-cache" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && Array.isArray(json.ladder)) {
+            nextPlan = json;
+            await store.set("hs:program", JSON.stringify(json));
+          }
+        }
+      } catch {}
+      if (!nextPlan) {
+        const cached = await store.get("hs:program");
+        if (cached?.value) { try { const j = JSON.parse(cached.value); if (Array.isArray(j.ladder)) nextPlan = j; } catch {} }
+      }
+      setPlan(nextPlan || FALLBACK_PLAN);
       setLoading(false);
     })();
   }, []);
@@ -115,7 +140,40 @@ export default function App() {
   const toggleLadder = async (id) => {
     const done = ladderState.done.includes(id) ? ladderState.done.filter((x) => x !== id) : [...ladderState.done, id];
     const current = done.length ? Math.max(...done) + 1 : 0;
-    await persistLadder({ current: Math.min(current, LADDER.length - 1), done });
+    await persistLadder({ current: Math.min(current, (plan?.ladder.length ?? 1) - 1), done });
+  };
+
+  const flash = (msg) => { setIoMsg(msg); setTimeout(() => setIoMsg(""), 4000); };
+
+  // Export logs + ladder progress to a downloadable JSON file (device-to-device backup).
+  const exportData = () => {
+    const payload = { app: "crossfit-workout", version: 1, exportedAt: new Date().toISOString(), logs, ladder: ladderState };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `crossfit-log-${todayISO()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    flash(`Exported ${logs.length} session(s).`);
+  };
+
+  // Import a previously exported file: merge sessions by date (imported wins) and restore ladder.
+  const importData = async (file) => {
+    try {
+      const data = JSON.parse(await file.text());
+      const incoming = Array.isArray(data) ? data : data.logs;
+      if (!Array.isArray(incoming)) throw new Error("no sessions found in file");
+      const byDate = new Map(logs.map((l) => [l.date, l]));
+      for (const l of incoming) byDate.set(l.date, { ...l, id: l.id ?? Date.now() + Math.floor(Math.random() * 1e6) });
+      await persistLogs([...byDate.values()]);
+      if (data.ladder && Array.isArray(data.ladder.done)) await persistLadder(data.ladder);
+      flash(`Imported ${incoming.length} session(s).`);
+    } catch (e) {
+      flash(`Import failed: ${e.message}`);
+    }
   };
 
   const delta = (key) => {
@@ -126,6 +184,9 @@ export default function App() {
 
   if (loading)
     return <Shell><div style={{ padding: 80, textAlign: "center", color: MUTE, fontFamily: "var(--mono)" }}>loading log…</div></Shell>;
+
+  const LADDER = plan.ladder;
+  const PROGRAM = plan;
 
   return (
     <Shell>
@@ -297,6 +358,14 @@ export default function App() {
 
       {tab === "history" && (
         <div style={{ padding: "0 16px 60px" }}>
+          <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={exportData} style={ghostBtn()}>↓ Export JSON</button>
+            <button onClick={() => fileRef.current?.click()} style={ghostBtn()}>↑ Import JSON</button>
+            <input ref={fileRef} type="file" accept="application/json,.json"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importData(f); e.target.value = ""; }}
+              style={{ display: "none" }} />
+            {ioMsg && <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: GOLD }}>{ioMsg}</span>}
+          </div>
           {sorted.length === 0 ? (
             <div style={{ textAlign: "center", padding: 50, color: MUTE, fontFamily: "var(--mono)" }}>No sessions yet.</div>
           ) : (
@@ -421,3 +490,4 @@ const card = (pad) => ({ background: PANEL, border: `1px solid ${LINE}`, borderR
 const inp = () => ({ width: "100%", background: INK, border: `1px solid ${LINE}`, borderRadius: 4, padding: "11px 12px", color: CHALK, fontFamily: "var(--mono)", fontSize: 16, outline: "none" });
 const td = () => ({ padding: "11px 12px", color: CHALK, whiteSpace: "nowrap" });
 const primaryBtn = () => ({ width: "100%", background: ACCENT, border: "none", borderRadius: 4, padding: "14px", color: INK, fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, letterSpacing: 1, cursor: "pointer", textTransform: "uppercase" });
+const ghostBtn = () => ({ background: "transparent", border: `1px solid ${LINE}`, borderRadius: 4, padding: "9px 14px", color: CHALK, fontFamily: "var(--mono)", fontSize: 13, cursor: "pointer" });
