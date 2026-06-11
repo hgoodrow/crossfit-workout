@@ -26,13 +26,40 @@ const store = {
 };
 
 const LADDER = [
-  { id: 0, name: "Chest-to-Wall Hold", note: "Hands 6–8\" from wall, hollow body", target: "60s @ ≤8\"" },
-  { id: 1, name: "Freestanding Hold", note: "Kick up, find balance", target: "30s" },
-  { id: 2, name: "Negative HSPU", note: "3–5s controlled descent", target: "3 reps" },
-  { id: 3, name: "Strict HSPU (no deficit)", note: "Head to floor → lockout", target: "5 reps" },
-  { id: 4, name: "Deficit Strict HSPU", note: "Plates / parallettes", target: "5 reps" },
-  { id: 5, name: "Kipping HSPU", note: "Efficient once strict is owned", target: "—" },
+  { id: 0, name: "Chest-to-Wall Hold", note: "Hands 6–8\" from wall, hollow body", target: "60s @ ≤8\"",
+    sets: "3–4 holds", reps: "build to 60s", freq: "2–3×/week" },
+  { id: 1, name: "Freestanding Hold", note: "Kick up, find balance", target: "30s",
+    sets: "5–10 min practice", reps: "5–10s → 30s holds", freq: "daily (skill)" },
+  { id: 2, name: "Negative HSPU", note: "3–5s controlled descent", target: "3 reps",
+    sets: "3–4 sets", reps: "3 reps @ 3–5s descent", freq: "2–3×/week" },
+  { id: 3, name: "Strict HSPU (no deficit)", note: "Head to floor → lockout", target: "5 reps",
+    sets: "accumulate sets", reps: "start 1 → sets of 3–5", freq: "2–3×/week" },
+  { id: 4, name: "Deficit Strict HSPU", note: "Plates / parallettes", target: "5 reps",
+    sets: "sets of 3–5", reps: "progressive ROM", freq: "2–3×/week" },
+  { id: 5, name: "Kipping HSPU", note: "Efficient once strict is owned", target: "—",
+    sets: "conditioning volume", reps: "once 5+ strict owned", freq: "as programmed" },
 ];
+
+// The actual training plan behind the log — prescriptions, prep, and mobility.
+const PROGRAM = {
+  cadence: [
+    ["Strength & holds", "2–3× per week"],
+    ["Balance / freestanding", "5–10 min daily"],
+    ["Wrist + shoulder prep", "every session"],
+    ["Expected timeline", "8–12 weeks"],
+  ],
+  warmup: [
+    "Wrist circles — both directions, ~30s each",
+    "Prayer stretch + reverse prayer — ease into extension and flexion",
+    "Quadruped rocking — rock forward over extended wrists, add load progressively",
+    "Banded overhead stretch + wall slides — open shoulder flexion before loading",
+  ],
+  mobility: [
+    "Thoracic extension — foam roller over a rolled towel at mid-back; cat-cow with reach",
+    "Shoulder flexion — banded overhead stretch, wall slide with overpressure",
+    "Hollow body holds — floor, arms overhead, low back flat, 30–45s. Own this before inverting",
+  ],
+};
 
 const METRICS = [
   { key: "holdSec", label: "C2W hold", unit: "s", color: ACCENT, invert: false },
@@ -196,11 +223,75 @@ export default function App() {
                     <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: GOLD }}>{step.target}</span>
                   </div>
                   <div style={{ color: MUTE, fontSize: 13, marginTop: 4, fontFamily: "var(--body)" }}>{step.note}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginTop: 8 }}>
+                    {[["sets", step.sets], ["reps", step.reps], ["freq", step.freq]].map(([k, v]) => (
+                      <span key={k} style={{ fontFamily: "var(--mono)", fontSize: 11 }}>
+                        <span style={{ color: "#5f6470", letterSpacing: 1, textTransform: "uppercase" }}>{k} </span>
+                        <span style={{ color: done ? MUTE : CHALK }}>{v}</span>
+                      </span>
+                    ))}
+                  </div>
                   {current && <div style={{ marginTop: 8, fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, color: ACCENT, textTransform: "uppercase" }}>◆ Current focus</div>}
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === "program" && (
+        <div style={{ padding: "0 16px 60px", maxWidth: 760 }}>
+          <p style={{ color: MUTE, fontSize: 14, lineHeight: 1.6, marginBottom: 22, fontFamily: "var(--body)" }}>
+            The training plan behind the log. Wrist prep is non-negotiable at every session, and the parallel mobility work — not the holds — is the real bottleneck right now.
+          </p>
+
+          <div style={{ ...card(), marginBottom: 14 }}>
+            <SectionLabel>Weekly cadence</SectionLabel>
+            {PROGRAM.cadence.map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderTop: `1px solid ${LINE}` }}>
+                <span style={{ fontFamily: "var(--body)", fontSize: 14, color: CHALK }}>{k}</span>
+                <span style={{ fontFamily: "var(--mono)", fontSize: 13, color: GOLD, textAlign: "right" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ ...card(), marginBottom: 14, borderColor: ACCENT }}>
+            <SectionLabel accent>Main work · current rung</SectionLabel>
+            {(() => {
+              const r = LADDER[ladderState.current] || LADDER[0];
+              return (
+                <>
+                  <div style={{ fontFamily: "var(--display)", fontSize: 18, color: CHALK, marginBottom: 4 }}>{r.name}</div>
+                  <div style={{ color: MUTE, fontSize: 13, marginBottom: 14, fontFamily: "var(--body)" }}>{r.note}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+                    {[["Sets", r.sets], ["Reps / time", r.reps], ["Frequency", r.freq]].map(([k, v]) => (
+                      <div key={k} style={{ background: INK, border: `1px solid ${LINE}`, borderRadius: 4, padding: "10px 12px" }}>
+                        <div style={{ fontFamily: "var(--mono)", fontSize: 10, letterSpacing: 1, color: MUTE, textTransform: "uppercase" }}>{k}</div>
+                        <div style={{ fontFamily: "var(--mono)", fontSize: 13, color: CHALK, marginTop: 5 }}>{v}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ marginTop: 12, fontFamily: "var(--mono)", fontSize: 11, color: MUTE }}>
+                    Advances automatically as you tick rungs on <span style={{ color: ACCENT }}>Progression</span>.
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          <div style={{ ...card(), marginBottom: 14 }}>
+            <SectionLabel>Every session · wrist + shoulder prep <span style={{ color: ACCENT }}>(3–5 min)</span></SectionLabel>
+            <ol style={{ margin: 0, paddingLeft: 18, color: CHALK, fontFamily: "var(--body)", fontSize: 14, lineHeight: 1.7 }}>
+              {PROGRAM.warmup.map((x, i) => <li key={i} style={{ marginBottom: 6 }}>{x}</li>)}
+            </ol>
+          </div>
+
+          <div style={card()}>
+            <SectionLabel>Parallel mobility · the real bottleneck</SectionLabel>
+            <ul style={{ margin: 0, paddingLeft: 18, color: CHALK, fontFamily: "var(--body)", fontSize: 14, lineHeight: 1.7 }}>
+              {PROGRAM.mobility.map((x, i) => <li key={i} style={{ marginBottom: 6 }}>{x}</li>)}
+            </ul>
+          </div>
         </div>
       )}
 
@@ -263,7 +354,7 @@ function Shell({ children }) {
 }
 
 function Header({ tab, setTab }) {
-  const tabs = [["dash", "Dashboard"], ["log", "+ Log"], ["ladder", "Progression"], ["history", "History"]];
+  const tabs = [["dash", "Dashboard"], ["program", "Program"], ["log", "+ Log"], ["ladder", "Progression"], ["history", "History"]];
   return (
     <div style={{ padding: "28px 16px 18px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
@@ -308,6 +399,12 @@ function Chart({ data, keyName, color, ref60, goal }) {
         <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2.5} dot={{ r: 3, fill: color }} activeDot={{ r: 5 }} />
       </LineChart>
     </ResponsiveContainer>
+  );
+}
+
+function SectionLabel({ children, accent }) {
+  return (
+    <div style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: 1, textTransform: "uppercase", color: accent ? ACCENT : MUTE, marginBottom: 12 }}>{children}</div>
   );
 }
 
