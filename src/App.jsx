@@ -212,11 +212,11 @@ export default function App() {
 
       {tab === "dash" && (
         <div style={{ padding: "0 16px 60px" }}>
-          <PhaseProgress phase={PHASE} cycle={progress.cycle} done={doneCount} total={total}
-            upNext={upNext} onJump={goToSession} onNextCycle={startNextCycle} />
+          <div className="rise"><PhaseProgress phase={PHASE} cycle={progress.cycle} done={doneCount} total={total}
+            upNext={upNext} onJump={goToSession} onNextCycle={startNextCycle} /></div>
 
           {PHASE.about?.length > 0 && (
-            <div style={{ ...card(), marginTop: 14 }}>
+            <div className="rise" style={{ ...card(), marginTop: 14, animationDelay: ".05s" }}>
               <SectionLabel>Why strict HSPU first</SectionLabel>
               {PHASE.about.map((a, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < PHASE.about.length - 1 ? 10 : 0, color: MUTE, fontFamily: "var(--body)", fontSize: 13, lineHeight: 1.6 }}>
@@ -227,7 +227,7 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ ...card(), marginTop: 14 }}>
+          <div className="rise" style={{ ...card(), marginTop: 14, animationDelay: ".1s" }}>
             <SectionLabel>The {PHASE.weeks}-week block · {PHASE.daysPerWeek} days/week</SectionLabel>
             <div style={{ display: "grid", gap: 8 }}>
               {plan.weeks.map((w) => (
@@ -239,8 +239,8 @@ export default function App() {
                       const bench = dayHasBench(d);
                       const sdone = !!progress.done[sessionKey(w.week, d.day)];
                       return (
-                        <button key={d.day} onClick={() => goToSession(w.week)} style={{
-                          flex: 1, minWidth: 92, textAlign: "left", cursor: "pointer",
+                        <button key={d.day} className="lift" onClick={() => goToSession(w.week)} style={{
+                          flex: 1, minWidth: 100, textAlign: "left", cursor: "pointer",
                           background: sdone ? "rgba(110,231,159,0.08)" : INK,
                           border: `1px solid ${sdone ? "rgba(110,231,159,0.4)" : LINE}`, borderRadius: 10, padding: "8px 10px",
                         }}>
@@ -250,7 +250,7 @@ export default function App() {
                             {bench && <span style={{ color: ACCENT, fontSize: 11 }}>◆</span>}
                             {sdone && <span style={{ color: GREEN, fontSize: 11, marginLeft: "auto" }}>✓</span>}
                           </div>
-                          <div style={{ fontFamily: "var(--body)", fontSize: 11, color: MUTE, marginTop: 2 }}>{d.theme}</div>
+                          <div style={{ fontFamily: "var(--body)", fontSize: 11, color: MUTE, marginTop: 3, lineHeight: 1.35 }}>{d.wod?.[0]?.name || d.theme}</div>
                         </button>
                       );
                     })}
@@ -264,15 +264,15 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, margin: "22px 0 26px" }}>
+          <div className="rise" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, margin: "22px 0 26px", animationDelay: ".15s" }}>
             {METRICS.map((m) => {
               const d = delta(m.key);
               const good = d == null ? null : m.invert ? d < 0 : d > 0;
               return (
-                <div key={m.key} style={card()}>
+                <div key={m.key} className="lift" style={card()}>
                   <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>{m.label}</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 9 }}>
-                    <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 32, color: CHALK, lineHeight: 1 }}>{latest?.[m.key] ?? "—"}</span>
+                    <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 32, color: CHALK, lineHeight: 1 }}>{latest?.[m.key] != null ? <CountUp value={latest[m.key]} /> : "—"}</span>
                     <span style={{ fontFamily: "var(--body)", fontSize: 13, color: MUTE }}>{m.unit}</span>
                   </div>
                   {d != null && (
@@ -289,7 +289,7 @@ export default function App() {
             })}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14 }}>
+          <div className="rise" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14, animationDelay: ".2s" }}>
             <ChartPanel title="Strict HSPU" sub="reps — north star toward 1">
               <Chart data={sorted} keyName="maxHSPU" color={ACCENT} refY={1} refLabel="goal" refColor={GREEN} />
             </ChartPanel>
@@ -311,7 +311,7 @@ export default function App() {
 
       {tab === "program" && (
         <div style={{ padding: "0 16px 60px", maxWidth: 820 }}>
-          <div style={{ ...card(), marginBottom: 14 }}>
+          <div className="rise" style={{ ...card(), marginBottom: 14 }}>
             <SectionLabel>Phase {PHASE.level}</SectionLabel>
             <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 20, color: CHALK }}>{PHASE.title}</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 22px", margin: "14px 0 4px" }}>
@@ -326,18 +326,16 @@ export default function App() {
             ))}
           </div>
 
-          <div style={{ ...card(), marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div className="rise" style={{ ...card(), marginBottom: 16, animationDelay: ".05s", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 16, color: CHALK }}>Cycle {progress.cycle}</div>
               <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE, marginTop: 2 }}>{doneCount}/{total} sessions complete</div>
-              <div style={{ width: 180, maxWidth: "60vw", height: 6, background: INK, borderRadius: 999, marginTop: 8, overflow: "hidden" }}>
-                <div style={{ width: `${total ? (doneCount / total) * 100 : 0}%`, height: "100%", background: "linear-gradient(90deg,#ff6a4d,#ff4f30)" }} />
-              </div>
+              <div style={{ width: 180, maxWidth: "60vw", marginTop: 8 }}><ProgressBar value={doneCount} max={total} /></div>
             </div>
             <button onClick={startNextCycle} style={ghostBtn()}>Start next cycle</button>
           </div>
 
-          <div style={{ marginBottom: 16, overflowX: "auto" }}>
+          <div className="rise" style={{ marginBottom: 16, overflowX: "auto", animationDelay: ".1s" }}>
             <div style={{ display: "inline-flex", gap: 3, background: "#111319", border: `1px solid ${LINE}`, borderRadius: 14, padding: 3 }}>
               {plan.weeks.map((w) => {
                 const on = w.week === week;
@@ -358,10 +356,12 @@ export default function App() {
           </div>
 
           <div style={{ display: "grid", gap: 14 }}>
-            {weekObj.days.map((d) => (
-              <DayCard key={d.day} week={weekObj.week} day={d}
-                done={!!progress.done[sessionKey(weekObj.week, d.day)]}
-                onToggle={() => toggleSession(weekObj.week, d.day)} />
+            {weekObj.days.map((d, i) => (
+              <div key={d.day} className="rise" style={{ animationDelay: `${0.12 + i * 0.06}s` }}>
+                <DayCard week={weekObj.week} day={d}
+                  done={!!progress.done[sessionKey(weekObj.week, d.day)]}
+                  onToggle={() => toggleSession(weekObj.week, d.day)} />
+              </div>
             ))}
           </div>
         </div>
@@ -373,7 +373,7 @@ export default function App() {
         const setMv = (name, v) => setDraft({ ...draft, movements: { ...draft.movements, [name]: v } });
         return (
           <div style={{ padding: "0 16px 60px", maxWidth: 680 }}>
-            <div style={card(true)}>
+            <div className="rise" style={card(true)}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <Field label="Week">
                   <select value={draft.week} onChange={(e) => setDraft({ ...draft, week: Number(e.target.value) })} style={inp()}>
@@ -441,13 +441,13 @@ export default function App() {
             <div style={{ textAlign: "center", padding: 50, color: MUTE, fontFamily: "var(--mono)" }}>No sessions yet.</div>
           ) : (
             <div style={{ display: "grid", gap: 12 }}>
-              {[...sorted].reverse().map((l) => {
+              {[...sorted].reverse().map((l, i) => {
                 const day = l.week && l.day ? getDay(plan, l.week, l.day) : null;
                 const tc = day ? themeColor(day.theme) : MUTE;
                 const mv = l.movements ? Object.entries(l.movements) : [];
                 const chips = [["HSPU", l.maxHSPU, ""], ["Hold", l.holdSec, "s"], ["Pain", l.wristPain, "/10"]].filter(([, v]) => v != null);
                 return (
-                  <div key={l.id} style={card()}>
+                  <div key={l.id} className="rise lift" style={{ ...card(), animationDelay: `${Math.min(i * 0.04, 0.3)}s` }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 15, color: CHALK }}>{fmtDate(l.date)}</span>
@@ -503,16 +503,14 @@ function PhaseProgress({ phase, cycle, done, total, upNext, onJump, onNextCycle 
       <SectionLabel accent>Phase {phase.level} · goal</SectionLabel>
       <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 18, color: CHALK, marginBottom: 12 }}>{phase.goal}</div>
       <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>Cycle {cycle} · {done}/{total} sessions</div>
-      <div style={{ width: "100%", height: 6, background: INK, borderRadius: 999, margin: "8px 0 14px", overflow: "hidden" }}>
-        <div style={{ width: `${total ? (done / total) * 100 : 0}%`, height: "100%", background: "linear-gradient(90deg,#ff6a4d,#ff4f30)" }} />
-      </div>
+      <div style={{ margin: "8px 0 14px" }}><ProgressBar value={done} max={total} /></div>
       {upNext ? (
-        <button onClick={() => onJump(upNext.week)} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
-          Next up · Week {upNext.week} Day {upNext.day} · {upNext.theme} →
+        <button className="cta glow" onClick={() => onJump(upNext.week)} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
+          Next up · Week {upNext.week} Day {upNext.day} · {upNext.theme} <span className="arrow">→</span>
         </button>
       ) : (
-        <button onClick={onNextCycle} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
-          Cycle complete — start cycle {cycle + 1} →
+        <button className="cta" onClick={onNextCycle} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
+          Cycle complete — start cycle {cycle + 1} <span className="arrow">→</span>
         </button>
       )}
     </div>
@@ -522,7 +520,7 @@ function PhaseProgress({ phase, cycle, done, total, upNext, onJump, onNextCycle 
 function DayCard({ week, day, done, onToggle }) {
   const tc = themeColor(day.theme);
   return (
-    <div style={{ ...card(), opacity: done ? 0.72 : 1 }}>
+    <div className="lift" style={{ ...card(), opacity: done ? 0.72 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 16, color: CHALK }}>Day {day.day}</span>
@@ -533,7 +531,7 @@ function DayCard({ week, day, done, onToggle }) {
           background: done ? "rgba(110,231,159,0.13)" : "transparent",
           border: `1px solid ${done ? GREEN : LINE}`, borderRadius: 999, padding: "6px 12px",
           fontFamily: "var(--body)", fontSize: 12, color: done ? GREEN : MUTE,
-        }}>{done ? "✓ Done" : "Mark done"}</button>
+        }}>{done ? <><span className="pop">✓</span> Done</> : "Mark done"}</button>
       </div>
       <Slot title="Warm up" items={day.warmup} />
       <Slot title="WOD" items={day.wod} />
@@ -585,6 +583,17 @@ function Shell({ children }) {
         button:active{transform:scale(.985);}
         .del{color:${MUTE};transition:color .15s;}
         .del:hover{color:${ACCENT};}
+        @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+        @keyframes glowpulse{0%,100%{box-shadow:0 6px 18px rgba(255,90,60,.30)}50%{box-shadow:0 8px 30px rgba(255,90,60,.55)}}
+        @keyframes pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
+        .rise{animation:rise .5s cubic-bezier(.2,.7,.2,1) both;}
+        .lift{transition:box-shadow .18s ease,border-color .18s ease;}
+        .lift:hover{border-color:rgba(255,255,255,.16);box-shadow:0 12px 32px rgba(0,0,0,.45);}
+        .glow{animation:glowpulse 2.6s ease-in-out infinite;}
+        .pop{display:inline-block;animation:pop .32s cubic-bezier(.2,.7,.2,1);}
+        .cta .arrow{display:inline-block;transition:transform .18s ease;}
+        .cta:hover .arrow{transform:translateX(4px);}
+        @media (prefers-reduced-motion:reduce){.rise,.glow,.pop{animation:none!important}.lift,.cta .arrow{transition:none}}
         ::selection{background:${ACCENT};color:#fff;}
       `}</style>
       <div style={{ fontFamily: "var(--body)", maxWidth: 1040, margin: "0 auto" }}>{children}</div>
@@ -657,6 +666,38 @@ function SectionLabel({ children, accent }) {
   return (
     <div style={{ fontFamily: "var(--body)", fontSize: 12, fontWeight: 500, color: accent ? ACCENT : MUTE, marginBottom: 12 }}>{children}</div>
   );
+}
+
+// Fill bar that sweeps from 0 to its value on mount.
+function ProgressBar({ value, max }) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setW(max ? Math.min(100, (value / max) * 100) : 0));
+    return () => cancelAnimationFrame(id);
+  }, [value, max]);
+  return (
+    <div style={{ width: "100%", height: 6, background: INK, borderRadius: 999, overflow: "hidden" }}>
+      <div style={{ width: `${w}%`, height: "100%", background: "linear-gradient(90deg,#ff6a4d,#ff4f30)", transition: "width .9s cubic-bezier(.2,.7,.2,1)" }} />
+    </div>
+  );
+}
+
+// Number that eases up to its value whenever it changes.
+function CountUp({ value }) {
+  const [v, setV] = useState(0);
+  const from = useRef(0);
+  useEffect(() => {
+    const start = performance.now(), dur = 600, a = from.current, b = value;
+    let raf;
+    const tick = (t) => {
+      const k = Math.min(1, (t - start) / dur), e = 1 - Math.pow(1 - k, 3);
+      setV(a + (b - a) * e);
+      if (k < 1) raf = requestAnimationFrame(tick); else from.current = b;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{Math.round(v)}</>;
 }
 
 function Field({ label, children }) {
