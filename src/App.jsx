@@ -47,6 +47,13 @@ const themeColor = (t) => (t === "Intensity" ? ACCENT : t === "Assistance" ? GOL
 
 const totalSessions = (plan) => plan.weeks.reduce((n, w) => n + w.days.length, 0);
 
+const getDay = (plan, w, d) => plan.weeks.find((x) => x.week === w)?.days.find((y) => y.day === d) || null;
+const dayExercises = (day) => (day ? [...(day.warmup || []), ...(day.wod || []), ...(day.accessory || [])] : []);
+const dayHasBench = (day) => dayExercises(day).some((e) => e.benchmark);
+const dayHasHSPU = (day) => dayExercises(day).some((e) => e.benchmark || /handstand push-?up|hspu/i.test(e.name));
+const dayHasHold = (day) => dayExercises(day).some((e) => /handstand hold/i.test(e.name));
+const SLOTS = [["warmup", "Warm up"], ["wod", "WOD"], ["accessory", "Accessory"]];
+
 // First week in the cycle that still has an unfinished day (where you are now).
 const currentWeek = (plan, done) => {
   for (const w of plan.weeks)
@@ -72,7 +79,7 @@ export default function App() {
   const [ioMsg, setIoMsg] = useState("");
   const fileRef = useRef(null);
   const [draft, setDraft] = useState({
-    date: todayISO(), maxHSPU: "", holdSec: "", wristPain: "", notes: "",
+    date: todayISO(), week: 1, day: 1, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false,
   });
 
   useEffect(() => {
@@ -101,9 +108,12 @@ export default function App() {
       }
       const resolved = nextPlan || FALLBACK_PLAN;
       setPlan(resolved);
-      // Open the Program tab on the week the lifter is actually on.
+      // Open the Program tab on the week the lifter is actually on, and pre-fill
+      // the log with the next unfinished session.
       const pr = p?.value ? (() => { try { return JSON.parse(p.value); } catch { return null; } })() : null;
       setWeek(currentWeek(resolved, pr?.done || {}));
+      const nx = nextSession(resolved, pr?.done || {}) || { week: 1, day: 1 };
+      setDraft((d) => ({ ...d, week: nx.week, day: nx.day }));
       setLoading(false);
     })();
   }, []);
@@ -116,13 +126,22 @@ export default function App() {
 
   const addLog = async () => {
     const num = (v) => (v === "" ? null : Number(v));
+    const movements = Object.fromEntries(
+      Object.entries(draft.movements || {}).filter(([, v]) => v != null && String(v).trim() !== "")
+    );
     const entry = {
-      id: Date.now(), date: draft.date,
+      id: Date.now(), date: draft.date, week: draft.week, day: draft.day, movements,
       maxHSPU: num(draft.maxHSPU), holdSec: num(draft.holdSec), wristPain: num(draft.wristPain),
       notes: draft.notes.trim(),
     };
     await persistLogs([...logs.filter((l) => l.date !== entry.date), entry]);
-    setDraft({ date: todayISO(), maxHSPU: "", holdSec: "", wristPain: "", notes: "" });
+    let done = progress.done;
+    if (draft.markDone && draft.week && draft.day) {
+      const k = sessionKey(draft.week, draft.day);
+      if (!done[k]) { done = { ...done, [k]: true }; await persistProgress({ ...progress, done }); }
+    }
+    const nx = nextSession(plan, done) || { week: 1, day: 1 };
+    setDraft({ date: todayISO(), week: nx.week, day: nx.day, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false });
     setTab("dash");
   };
 
@@ -195,6 +214,55 @@ export default function App() {
         <div style={{ padding: "0 16px 60px" }}>
           <PhaseProgress phase={PHASE} cycle={progress.cycle} done={doneCount} total={total}
             upNext={upNext} onJump={goToSession} onNextCycle={startNextCycle} />
+
+          {PHASE.about?.length > 0 && (
+            <div style={{ ...card(), marginTop: 14 }}>
+              <SectionLabel>Why strict HSPU first</SectionLabel>
+              {PHASE.about.map((a, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < PHASE.about.length - 1 ? 10 : 0, color: MUTE, fontFamily: "var(--body)", fontSize: 13, lineHeight: 1.6 }}>
+                  <span style={{ flexShrink: 0, width: 20, height: 20, borderRadius: "50%", display: "grid", placeItems: "center", background: "rgba(255,90,60,0.14)", color: ACCENT, fontFamily: "var(--mono)", fontSize: 11 }}>{i + 1}</span>
+                  <span>{a}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ ...card(), marginTop: 14 }}>
+            <SectionLabel>The {PHASE.weeks}-week block · {PHASE.daysPerWeek} days/week</SectionLabel>
+            <div style={{ display: "grid", gap: 8 }}>
+              {plan.weeks.map((w) => (
+                <div key={w.week} style={{ display: "flex", alignItems: "stretch", gap: 8 }}>
+                  <span style={{ width: 52, flexShrink: 0, display: "flex", alignItems: "center", fontFamily: "var(--mono)", fontSize: 12, color: MUTE }}>Wk {w.week}</span>
+                  <div style={{ display: "flex", gap: 6, flex: 1, flexWrap: "wrap" }}>
+                    {w.days.map((d) => {
+                      const tc = themeColor(d.theme);
+                      const bench = dayHasBench(d);
+                      const sdone = !!progress.done[sessionKey(w.week, d.day)];
+                      return (
+                        <button key={d.day} onClick={() => goToSession(w.week)} style={{
+                          flex: 1, minWidth: 92, textAlign: "left", cursor: "pointer",
+                          background: sdone ? "rgba(110,231,159,0.08)" : INK,
+                          border: `1px solid ${sdone ? "rgba(110,231,159,0.4)" : LINE}`, borderRadius: 10, padding: "8px 10px",
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: "50%", background: tc }} />
+                            <span style={{ fontFamily: "var(--body)", fontSize: 12, fontWeight: 500, color: CHALK }}>Day {d.day}</span>
+                            {bench && <span style={{ color: ACCENT, fontSize: 11 }}>◆</span>}
+                            {sdone && <span style={{ color: GREEN, fontSize: 11, marginLeft: "auto" }}>✓</span>}
+                          </div>
+                          <div style={{ fontFamily: "var(--body)", fontSize: 11, color: MUTE, marginTop: 2 }}>{d.theme}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: 12, display: "flex", gap: 16, flexWrap: "wrap", fontFamily: "var(--body)", fontSize: 11, color: MUTE }}>
+              <span><span style={{ color: ACCENT }}>◆</span> benchmark — log max strict HSPU</span>
+              <span>Volume <span style={{ color: BLUE }}>●</span> · Assistance <span style={{ color: GOLD }}>●</span> · Intensity <span style={{ color: ACCENT }}>●</span></span>
+            </div>
+          </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, margin: "22px 0 26px" }}>
             {METRICS.map((m) => {
@@ -299,26 +367,68 @@ export default function App() {
         </div>
       )}
 
-      {tab === "log" && (
-        <div style={{ padding: "0 16px 60px", maxWidth: 640 }}>
-          <div style={card(true)}>
-            <Field label="Date"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} style={inp()} /></Field>
-            <Field label="Max strict HSPU (reps)"><input type="number" inputMode="numeric" min="0" value={draft.maxHSPU} onChange={(e) => setDraft({ ...draft, maxHSPU: e.target.value })} placeholder="0" style={inp()} /></Field>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-              <Field label="Handstand hold (s)"><input type="number" inputMode="numeric" value={draft.holdSec} onChange={(e) => setDraft({ ...draft, holdSec: e.target.value })} placeholder="30" style={inp()} /></Field>
-              <Field label="Wrist pain (0–10)"><input type="number" inputMode="numeric" min="0" max="10" value={draft.wristPain} onChange={(e) => setDraft({ ...draft, wristPain: e.target.value })} placeholder="2" style={inp()} /></Field>
-            </div>
-            <Field label="Notes"><textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Week 1 Day 3 — handstand holds felt strong. Scaled HSPU to a 12&quot; box." rows={3} style={{ ...inp(), resize: "vertical", fontFamily: "var(--body)" }} /></Field>
-            <button onClick={addLog} style={primaryBtn()}>Save session</button>
-            <div style={{ marginTop: 12, fontFamily: "var(--body)", fontSize: 12, color: MUTE, lineHeight: 1.6 }}>
-              Log <span style={{ color: ACCENT }}>max strict HSPU</span> on your Week 1 & Week 4 benchmark days to watch the north star climb. Mark each session done on the <span style={{ color: ACCENT }}>Program</span> tab.
+      {tab === "log" && (() => {
+        const sess = getDay(plan, draft.week, draft.day);
+        const dayOpts = plan.weeks.find((w) => w.week === draft.week)?.days || [];
+        const setMv = (name, v) => setDraft({ ...draft, movements: { ...draft.movements, [name]: v } });
+        return (
+          <div style={{ padding: "0 16px 60px", maxWidth: 680 }}>
+            <div style={card(true)}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <Field label="Week">
+                  <select value={draft.week} onChange={(e) => setDraft({ ...draft, week: Number(e.target.value) })} style={inp()}>
+                    {plan.weeks.map((w) => <option key={w.week} value={w.week}>Week {w.week}</option>)}
+                  </select>
+                </Field>
+                <Field label="Day">
+                  <select value={draft.day} onChange={(e) => setDraft({ ...draft, day: Number(e.target.value) })} style={inp()}>
+                    {dayOpts.map((d) => <option key={d.day} value={d.day}>Day {d.day} · {d.theme}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Date"><input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} style={inp()} /></Field>
+
+              {sess && SLOTS.map(([slot, title]) => {
+                const items = sess[slot] || [];
+                if (!items.length) return null;
+                return (
+                  <div key={slot} style={{ marginBottom: 6 }}>
+                    <div style={{ fontFamily: "var(--body)", fontSize: 11, fontWeight: 500, color: MUTE, margin: "6px 0 8px" }}>{title}</div>
+                    {items.map((ex, i) => (
+                      <div key={i} style={{ marginBottom: 14 }}>
+                        <label style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                          <span style={{ fontFamily: "var(--display)", fontWeight: 500, fontSize: 14, color: CHALK }}>{ex.name}{ex.benchmark && <span style={{ color: ACCENT, marginLeft: 6 }}>◆</span>}</span>
+                          <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: GOLD }}>{ex.prescription}</span>
+                        </label>
+                        <input value={draft.movements[ex.name] || ""} onChange={(e) => setMv(ex.name, e.target.value)} placeholder="what you did — e.g. 45 lb, all 10" style={{ ...inp(), fontFamily: "var(--body)" }} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+
+              <div style={{ height: 1, background: LINE, margin: "8px 0 16px" }} />
+              <div style={{ fontFamily: "var(--body)", fontSize: 11, fontWeight: 500, color: MUTE, marginBottom: 12 }}>Tracked metrics</div>
+              {dayHasHSPU(sess) && <Field label="Max strict HSPU (reps)"><input type="number" inputMode="numeric" min="0" value={draft.maxHSPU} onChange={(e) => setDraft({ ...draft, maxHSPU: e.target.value })} placeholder="0" style={inp()} /></Field>}
+              <div style={{ display: "grid", gridTemplateColumns: dayHasHold(sess) ? "1fr 1fr" : "1fr", gap: 14 }}>
+                {dayHasHold(sess) && <Field label="Handstand hold (s)"><input type="number" inputMode="numeric" value={draft.holdSec} onChange={(e) => setDraft({ ...draft, holdSec: e.target.value })} placeholder="30" style={inp()} /></Field>}
+                <Field label="Wrist pain (0–10)"><input type="number" inputMode="numeric" min="0" max="10" value={draft.wristPain} onChange={(e) => setDraft({ ...draft, wristPain: e.target.value })} placeholder="2" style={inp()} /></Field>
+              </div>
+              <Field label="Notes"><textarea value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="How it felt, scaling, anything to remember…" rows={3} style={{ ...inp(), resize: "vertical", fontFamily: "var(--body)" }} /></Field>
+
+              <label style={{ display: "flex", alignItems: "center", gap: 10, margin: "2px 0 18px", cursor: "pointer", fontFamily: "var(--body)", fontSize: 14, color: CHALK }}>
+                <input type="checkbox" checked={draft.markDone} onChange={(e) => setDraft({ ...draft, markDone: e.target.checked })} style={{ accentColor: ACCENT, width: 18, height: 18 }} />
+                Mark Week {draft.week} Day {draft.day} complete
+              </label>
+
+              <button onClick={addLog} style={primaryBtn()}>Save session</button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {tab === "history" && (
-        <div style={{ padding: "0 16px 60px" }}>
+        <div style={{ padding: "0 16px 60px", maxWidth: 820 }}>
           <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
             <button onClick={exportData} style={ghostBtn()}>↓ Export JSON</button>
             <button onClick={() => fileRef.current?.click()} style={ghostBtn()}>↑ Import JSON</button>
@@ -330,28 +440,51 @@ export default function App() {
           {sorted.length === 0 ? (
             <div style={{ textAlign: "center", padding: 50, color: MUTE, fontFamily: "var(--mono)" }}>No sessions yet.</div>
           ) : (
-            <div style={{ ...card(), padding: 0, overflow: "hidden", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--mono)", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: "#13151b" }}>
-                    {["Date", "HSPU", "Hold", "Pain", "Notes", ""].map((h) => (
-                      <th key={h} style={{ textAlign: "left", padding: "12px 12px", color: MUTE, fontWeight: 500, fontSize: 12, fontFamily: "var(--body)" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...sorted].reverse().map((l) => (
-                    <tr key={l.id} style={{ borderTop: `1px solid ${LINE}` }}>
-                      <td style={td()}>{fmtDate(l.date)}</td>
-                      <td style={td()}>{l.maxHSPU ?? "—"}</td>
-                      <td style={td()}>{l.holdSec ?? "—"}{l.holdSec != null && "s"}</td>
-                      <td style={td()}>{l.wristPain ?? "—"}</td>
-                      <td style={{ ...td(), fontFamily: "var(--body)", color: MUTE, maxWidth: 240, whiteSpace: "normal" }}>{l.notes || "—"}</td>
-                      <td style={td()}><button className="del" onClick={() => delLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>×</button></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: "grid", gap: 12 }}>
+              {[...sorted].reverse().map((l) => {
+                const day = l.week && l.day ? getDay(plan, l.week, l.day) : null;
+                const tc = day ? themeColor(day.theme) : MUTE;
+                const mv = l.movements ? Object.entries(l.movements) : [];
+                const chips = [["HSPU", l.maxHSPU, ""], ["Hold", l.holdSec, "s"], ["Pain", l.wristPain, "/10"]].filter(([, v]) => v != null);
+                return (
+                  <div key={l.id} style={card()}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                        <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 15, color: CHALK }}>{fmtDate(l.date)}</span>
+                        {l.week && l.day && (
+                          <span style={{ fontFamily: "var(--mono)", fontSize: 11, padding: "3px 10px", borderRadius: 999, background: `${tc}22`, color: tc }}>
+                            Wk {l.week} · Day {l.day}{day ? ` · ${day.theme}` : ""}
+                          </span>
+                        )}
+                      </div>
+                      <button className="del" onClick={() => delLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>×</button>
+                    </div>
+
+                    {chips.length > 0 && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                        {chips.map(([k, v, u]) => (
+                          <span key={k} style={{ fontFamily: "var(--mono)", fontSize: 12, padding: "4px 10px", borderRadius: 999, background: INK, border: `1px solid ${LINE}`, color: CHALK }}>
+                            <span style={{ color: MUTE }}>{k} </span>{v}{u}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {mv.length > 0 && (
+                      <div style={{ marginTop: 12, display: "grid", gap: 6 }}>
+                        {mv.map(([name, res]) => (
+                          <div key={name} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, fontFamily: "var(--body)" }}>
+                            <span style={{ color: MUTE }}>{name}</span>
+                            <span style={{ color: CHALK, fontFamily: "var(--mono)", fontSize: 12, textAlign: "right" }}>{res}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {l.notes && <div style={{ marginTop: 12, color: MUTE, fontFamily: "var(--body)", fontSize: 13, lineHeight: 1.6 }}>{l.notes}</div>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
