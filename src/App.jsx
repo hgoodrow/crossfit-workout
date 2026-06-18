@@ -77,6 +77,8 @@ export default function App() {
   const [tab, setTab] = useState("dash");
   const [week, setWeek] = useState(1);
   const [ioMsg, setIoMsg] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [confirmDelId, setConfirmDelId] = useState(null);
   const fileRef = useRef(null);
   const [draft, setDraft] = useState({
     date: todayISO(), week: 1, day: 1, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false,
@@ -124,28 +126,69 @@ export default function App() {
   const sorted = useMemo(() => [...logs].sort((a, b) => new Date(a.date) - new Date(b.date)), [logs]);
   const latest = sorted[sorted.length - 1];
 
-  const addLog = async () => {
+  // Create a new session, or update the one being edited (editingId) in place.
+  const saveLog = async () => {
     const num = (v) => (v === "" ? null : Number(v));
     const movements = Object.fromEntries(
       Object.entries(draft.movements || {}).filter(([, v]) => v != null && String(v).trim() !== "")
     );
     const entry = {
-      id: Date.now(), date: draft.date, week: draft.week, day: draft.day, movements,
+      id: editingId ?? Date.now(), date: draft.date, week: draft.week, day: draft.day, movements,
       maxHSPU: num(draft.maxHSPU), holdSec: num(draft.holdSec), wristPain: num(draft.wristPain),
       notes: draft.notes.trim(),
     };
-    await persistLogs([...logs.filter((l) => l.date !== entry.date), entry]);
+    // Update by id when editing (keeping one-entry-per-date); else create.
+    const next = editingId
+      ? logs.map((l) => (l.id === editingId ? entry : l)).filter((l) => l.id === editingId || l.date !== entry.date)
+      : [...logs.filter((l) => l.date !== entry.date), entry];
+    await persistLogs(next);
+
     let done = progress.done;
-    if (draft.markDone && draft.week && draft.day) {
+    if (draft.week && draft.day) {
       const k = sessionKey(draft.week, draft.day);
-      if (!done[k]) { done = { ...done, [k]: true }; await persistProgress({ ...progress, done }); }
+      const has = !!done[k];
+      if (draft.markDone && !has) { done = { ...done, [k]: true }; await persistProgress({ ...progress, done }); }
+      else if (editingId && !draft.markDone && has) { const d2 = { ...done }; delete d2[k]; done = d2; await persistProgress({ ...progress, done }); }
     }
+
+    const wasEditing = editingId != null;
     const nx = nextSession(plan, done) || { week: 1, day: 1 };
+    setEditingId(null);
     setDraft({ date: todayISO(), week: nx.week, day: nx.day, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false });
-    setTab("dash");
+    setTab(wasEditing ? "history" : "dash");
   };
 
   const delLog = async (id) => persistLogs(logs.filter((l) => l.id !== id));
+
+  // Pre-fill the Log form with an existing entry and switch into edit mode.
+  const startEdit = (l) => {
+    const fb = nextSession(plan, progress.done) || { week: 1, day: 1 };
+    setEditingId(l.id);
+    setDraft({
+      date: l.date,
+      week: l.week ?? fb.week,
+      day: l.day ?? fb.day,
+      movements: { ...(l.movements || {}) },
+      maxHSPU: l.maxHSPU == null ? "" : String(l.maxHSPU),
+      holdSec: l.holdSec == null ? "" : String(l.holdSec),
+      wristPain: l.wristPain == null ? "" : String(l.wristPain),
+      notes: l.notes || "",
+      markDone: l.week && l.day ? !!progress.done[sessionKey(l.week, l.day)] : false,
+    });
+    setTab("log");
+  };
+
+  // Reset the form to a fresh next-up session (leaves edit mode).
+  const newEntry = () => {
+    setEditingId(null);
+    const nx = nextSession(plan, progress.done) || { week: 1, day: 1 };
+    setDraft({ date: todayISO(), week: nx.week, day: nx.day, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false });
+  };
+
+  const cancelEdit = () => { newEntry(); setTab("history"); };
+
+  // Tab selection from the nav bar: starting a new log exits any active edit.
+  const selectTab = (id) => { if (id === "log" && editingId) newEntry(); setTab(id); };
 
   const toggleSession = async (w, d) => {
     const k = sessionKey(w, d);
@@ -208,7 +251,7 @@ export default function App() {
 
   return (
     <Shell>
-      <Header tab={tab} setTab={setTab} />
+      <Header tab={tab} setTab={selectTab} />
 
       {tab === "dash" && (
         <div style={{ padding: "0 16px 60px" }}>
@@ -374,6 +417,12 @@ export default function App() {
         return (
           <div style={{ padding: "0 16px 60px", maxWidth: 680 }}>
             <div className="rise" style={card(true)}>
+              {editingId && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 16, padding: "10px 12px", borderRadius: 12, background: "rgba(255,90,60,0.10)", border: "1px solid rgba(255,90,60,0.35)" }}>
+                  <span style={{ fontFamily: "var(--body)", fontSize: 13, color: ACCENT }}>Editing session — {fmtDate(draft.date)}</span>
+                  <button onClick={cancelEdit} style={ghostBtn()}>Cancel</button>
+                </div>
+              )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <Field label="Week">
                   <select value={draft.week} onChange={(e) => setDraft({ ...draft, week: Number(e.target.value) })} style={inp()}>
@@ -421,7 +470,7 @@ export default function App() {
                 Mark Week {draft.week} Day {draft.day} complete
               </label>
 
-              <button onClick={addLog} style={primaryBtn()}>Save session</button>
+              <button onClick={saveLog} style={primaryBtn()}>{editingId ? "Update session" : "Save session"}</button>
             </div>
           </div>
         );
@@ -457,7 +506,20 @@ export default function App() {
                           </span>
                         )}
                       </div>
-                      <button className="del" onClick={() => delLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}>×</button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                        {confirmDelId === l.id ? (
+                          <>
+                            <span style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>Delete?</span>
+                            <button onClick={() => { delLog(l.id); setConfirmDelId(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--body)", fontSize: 13, color: ACCENT }}>Yes</button>
+                            <button onClick={() => setConfirmDelId(null)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: "var(--body)", fontSize: 13, color: MUTE }}>No</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startEdit(l)} style={{ background: "none", border: `1px solid ${LINE}`, borderRadius: 999, cursor: "pointer", fontFamily: "var(--body)", fontSize: 12, color: CHALK, padding: "4px 12px" }}>Edit</button>
+                            <button className="del" onClick={() => setConfirmDelId(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     {chips.length > 0 && (
