@@ -20,8 +20,14 @@ const LINE = "rgba(255,255,255,0.08)";
 const CHALK = "#eceef2";
 const MUTE = "#8b9099";
 const GREEN = "#6ee79f";
+const VIOLET = "#7c5cff"; // secondary brand — duotone accents, ring, Intensity theme
 const SURFACE = "linear-gradient(180deg,#181b22,#13151b)";
 const ACCENT_GLOW = "0 0 0 1px rgba(255,90,60,.08), 0 10px 30px rgba(255,90,60,.06)";
+const DUO = `linear-gradient(135deg, ${ACCENT}, ${VIOLET})`; // orange → violet brand gradient
+
+// Spacing + type scale — used by newer components for consistent rhythm.
+const SP = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
+const FS = { d1: 28, d2: 22, d3: 18, d4: 16, b1: 15, b2: 13, b3: 12, b4: 11 };
 
 // localStorage wrapper matching the prior async storage shape
 const store = {
@@ -35,7 +41,7 @@ const store = {
 // HSPU-focused tracking. holdSec + wristPain keys are reused from the prior
 // schema so older logged data keeps charting; maxHSPU is the new north star.
 const METRICS = [
-  { key: "maxHSPU", label: "Strict HSPU", unit: "reps", color: ACCENT, invert: false },
+  { key: "maxHSPU", label: "Strict HSPU", unit: "reps", color: ACCENT, invert: false, refY: 1, refLabel: "goal", refColor: GREEN },
   { key: "holdSec", label: "Handstand hold", unit: "s", color: GOLD, invert: false },
   { key: "wristPain", label: "Wrist pain", unit: "/10", color: BLUE, invert: true },
 ];
@@ -43,7 +49,7 @@ const METRICS = [
 const fmtDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const todayISO = () => new Date().toISOString().slice(0, 10);
 const sessionKey = (w, d) => `${w}-${d}`;
-const themeColor = (t) => (t === "Intensity" ? ACCENT : t === "Assistance" ? GOLD : BLUE);
+const themeColor = (t) => (t === "Intensity" ? VIOLET : t === "Assistance" ? GOLD : BLUE);
 
 const totalSessions = (plan) => plan.weeks.reduce((n, w) => n + w.days.length, 0);
 
@@ -79,6 +85,7 @@ export default function App() {
   const [ioMsg, setIoMsg] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [confirmDelId, setConfirmDelId] = useState(null);
+  const [openMetric, setOpenMetric] = useState(null);
   const fileRef = useRef(null);
   const [draft, setDraft] = useState({
     date: todayISO(), week: 1, day: 1, movements: {}, maxHSPU: "", holdSec: "", wristPain: "", notes: "", markDone: false,
@@ -251,7 +258,7 @@ export default function App() {
 
   return (
     <Shell>
-      <Header tab={tab} setTab={selectTab} />
+      <Header />
 
       {tab === "dash" && (
         <div style={{ padding: "0 16px 60px" }}>
@@ -290,8 +297,8 @@ export default function App() {
                           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                             <span style={{ width: 7, height: 7, borderRadius: "50%", background: tc }} />
                             <span style={{ fontFamily: "var(--body)", fontSize: 12, fontWeight: 500, color: CHALK }}>Day {d.day}</span>
-                            {bench && <span style={{ color: ACCENT, fontSize: 11 }}>◆</span>}
-                            {sdone && <span style={{ color: GREEN, fontSize: 11, marginLeft: "auto" }}>✓</span>}
+                            {bench && <Icon name="flame" size={12} color={ACCENT} />}
+                            {sdone && <span style={{ marginLeft: "auto", display: "inline-flex" }}><Icon name="check" size={13} color={GREEN} /></span>}
                           </div>
                           <div style={{ fontFamily: "var(--body)", fontSize: 11, color: MUTE, marginTop: 3, lineHeight: 1.35 }}>{d.wod?.[0]?.name || d.theme}</div>
                         </button>
@@ -302,53 +309,21 @@ export default function App() {
               ))}
             </div>
             <div style={{ marginTop: 12, display: "flex", gap: 16, flexWrap: "wrap", fontFamily: "var(--body)", fontSize: 11, color: MUTE }}>
-              <span><span style={{ color: ACCENT }}>◆</span> benchmark — log max strict HSPU</span>
-              <span>Volume <span style={{ color: BLUE }}>●</span> · Assistance <span style={{ color: GOLD }}>●</span> · Intensity <span style={{ color: ACCENT }}>●</span></span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="flame" size={12} color={ACCENT} /> benchmark — log max strict HSPU</span>
+              <span>Volume <span style={{ color: BLUE }}>●</span> · Assistance <span style={{ color: GOLD }}>●</span> · Intensity <span style={{ color: VIOLET }}>●</span></span>
             </div>
           </div>
 
-          <div className="rise" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 12, margin: "22px 0 26px", animationDelay: ".15s" }}>
+          <div className="rise" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 14, margin: "22px 0 26px", animationDelay: ".15s" }}>
             {METRICS.map((m) => {
               const d = delta(m.key);
               const good = d == null ? null : m.invert ? d < 0 : d > 0;
               return (
-                <div key={m.key} className="lift" style={card()}>
-                  <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>{m.label}</div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 9 }}>
-                    <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 32, color: CHALK, lineHeight: 1 }}>{latest?.[m.key] != null ? <CountUp value={latest[m.key]} /> : "—"}</span>
-                    <span style={{ fontFamily: "var(--body)", fontSize: 13, color: MUTE }}>{m.unit}</span>
-                  </div>
-                  {d != null && (
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 4, marginTop: 10,
-                      fontFamily: "var(--mono)", fontSize: 11, padding: "3px 9px", borderRadius: 999,
-                      background: good ? "rgba(110,231,159,0.13)" : "rgba(255,90,60,0.14)", color: good ? GREEN : ACCENT,
-                    }}>
-                      {d > 0 ? "↑" : d < 0 ? "↓" : "■"} {Math.abs(d)}{m.unit}
-                    </span>
-                  )}
-                </div>
+                <StatCard key={m.key} metric={m} latestVal={latest?.[m.key] ?? null} d={d} good={good} data={sorted}
+                  expanded={openMetric === m.key} onToggle={() => setOpenMetric(openMetric === m.key ? null : m.key)} />
               );
             })}
           </div>
-
-          <div className="rise" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(280px,1fr))", gap: 14, animationDelay: ".2s" }}>
-            <ChartPanel title="Strict HSPU" sub="reps — north star toward 1">
-              <Chart data={sorted} keyName="maxHSPU" color={ACCENT} refY={1} refLabel="goal" refColor={GREEN} />
-            </ChartPanel>
-            <ChartPanel title="Handstand hold" sub="seconds — accumulate time">
-              <Chart data={sorted} keyName="holdSec" color={GOLD} />
-            </ChartPanel>
-            <ChartPanel title="Wrist pain" sub="0–10 scale — keep it low">
-              <Chart data={sorted} keyName="wristPain" color={BLUE} />
-            </ChartPanel>
-          </div>
-
-          {sorted.length === 0 && (
-            <div style={{ textAlign: "center", padding: 50, color: MUTE, fontFamily: "var(--body)", fontSize: 13 }}>
-              No sessions logged yet. Tap <span style={{ color: ACCENT }}>+ Log</span> after training to start the record.
-            </div>
-          )}
         </div>
       )}
 
@@ -398,7 +373,7 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 14, alignItems: "start" }}>
             {weekObj.days.map((d, i) => (
               <div key={d.day} className="rise" style={{ animationDelay: `${0.12 + i * 0.06}s` }}>
                 <DayCard week={weekObj.week} day={d}
@@ -515,8 +490,8 @@ export default function App() {
                           </>
                         ) : (
                           <>
-                            <button onClick={() => startEdit(l)} style={{ background: "none", border: `1px solid ${LINE}`, borderRadius: 999, cursor: "pointer", fontFamily: "var(--body)", fontSize: 12, color: CHALK, padding: "4px 12px" }}>Edit</button>
-                            <button className="del" onClick={() => setConfirmDelId(l.id)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+                            <button onClick={() => startEdit(l)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${LINE}`, borderRadius: 999, cursor: "pointer", fontFamily: "var(--body)", fontSize: 12, color: CHALK, padding: "5px 12px" }}><Icon name="edit" size={13} /> Edit</button>
+                            <button className="del" onClick={() => setConfirmDelId(l.id)} style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", padding: 4 }} aria-label="Delete session"><Icon name="trash" size={16} /></button>
                           </>
                         )}
                       </div>
@@ -555,6 +530,8 @@ export default function App() {
       <div style={{ padding: "0 16px 40px", color: MUTE, fontFamily: "var(--mono)", fontSize: 11, opacity: 0.6 }}>
         Data persists on this device. Not medical advice — scale loads and manage wrist load conservatively.
       </div>
+
+      <BottomNav tab={tab} onSelect={selectTab} />
     </Shell>
   );
 }
@@ -562,19 +539,96 @@ export default function App() {
 function PhaseProgress({ phase, cycle, done, total, upNext, onJump, onNextCycle }) {
   return (
     <div style={{ ...card(), marginTop: 18, background: "linear-gradient(180deg,#1d1714,#161318)", border: `1px solid rgba(255,90,60,0.4)`, boxShadow: ACCENT_GLOW }}>
-      <SectionLabel accent>Phase {phase.level} · goal</SectionLabel>
-      <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 18, color: CHALK, marginBottom: 12 }}>{phase.goal}</div>
-      <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>Cycle {cycle} · {done}/{total} sessions</div>
-      <div style={{ margin: "8px 0 14px" }}><ProgressBar value={done} max={total} /></div>
-      {upNext ? (
-        <button className="cta glow" onClick={() => onJump(upNext.week)} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
-          Next up · Week {upNext.week} Day {upNext.day} · {upNext.theme} <span className="arrow">→</span>
-        </button>
-      ) : (
-        <button className="cta" onClick={onNextCycle} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
-          Cycle complete — start cycle {cycle + 1} <span className="arrow">→</span>
-        </button>
+      <div style={{ display: "flex", gap: SP.lg, alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <SectionLabel accent>Phase {phase.level} · goal</SectionLabel>
+          <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: FS.d3, color: CHALK, marginBottom: SP.md }}>{phase.goal}</div>
+          <div style={{ fontFamily: "var(--body)", fontSize: FS.b3, color: MUTE }}>Cycle {cycle} · {done}/{total} sessions</div>
+        </div>
+        <Ring value={done} max={total} />
+      </div>
+      <div style={{ marginTop: SP.lg }}>
+        {upNext ? (
+          <button className="cta glow" onClick={() => onJump(upNext.week)} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
+            Next up · Week {upNext.week} Day {upNext.day} · {upNext.theme} <span className="arrow" style={{ display: "inline-flex", verticalAlign: "middle" }}><Icon name="chevron" size={16} /></span>
+          </button>
+        ) : (
+          <button className="cta" onClick={onNextCycle} style={{ ...primaryBtn(), width: "auto", padding: "11px 16px" }}>
+            Cycle complete — start cycle {cycle + 1} <span className="arrow" style={{ display: "inline-flex", verticalAlign: "middle" }}><Icon name="chevron" size={16} /></span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Circular cycle-progress ring with the orange→violet brand gradient.
+function Ring({ value, max, size = 88, stroke = 9 }) {
+  const pct = max ? Math.min(1, value / max) : 0;
+  const r = (size - stroke) / 2, c = 2 * Math.PI * r;
+  const [off, setOff] = useState(c);
+  useEffect(() => { const id = requestAnimationFrame(() => setOff(c * (1 - pct))); return () => cancelAnimationFrame(id); }, [c, pct]);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <defs>
+        <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={ACCENT} /><stop offset="100%" stopColor={VIOLET} />
+        </linearGradient>
+      </defs>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.10)" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="url(#ringGrad)" strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={off} transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: "stroke-dashoffset .9s cubic-bezier(.2,.7,.2,1)" }} />
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle" fill={CHALK} style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: FS.d3 }}>{Math.round(pct * 100)}%</text>
+    </svg>
+  );
+}
+
+// Compact trend line for a stat card. Empty → faint dashed baseline.
+function Sparkline({ data, keyName, color }) {
+  const pts = data.filter((d) => d[keyName] != null).map((d) => ({ v: d[keyName] }));
+  if (pts.length === 0)
+    return <div style={{ height: "100%", display: "flex", alignItems: "center" }}><div style={{ width: "100%", borderTop: `1px dashed ${LINE}` }} /></div>;
+  const gid = `spark-${keyName}`;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={pts} margin={{ top: 4, right: 2, left: 2, bottom: 0 }}>
+        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.35} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={2} strokeLinecap="round" fill={`url(#${gid})`} dot={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DeltaChip({ d, good, unit }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--mono)", fontSize: FS.b4, padding: "3px 9px", borderRadius: 999, background: good ? "rgba(110,231,159,0.13)" : "rgba(255,90,60,0.14)", color: good ? GREEN : ACCENT }}>
+      {d > 0 ? <Icon name="up" size={11} /> : d < 0 ? <Icon name="down" size={11} /> : null} {Math.abs(d)}{unit}
+    </span>
+  );
+}
+
+// Unified metric card: number + delta + inline sparkline; tap to expand the full chart.
+function StatCard({ metric, latestVal, d, good, data, expanded, onToggle }) {
+  const has = latestVal != null;
+  const hint = expanded ? "tap to collapse" : has ? "tap for trend" : "log a session to start";
+  return (
+    <div className="lift" onClick={onToggle} style={{ ...card(), cursor: "pointer" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: SP.sm }}>
+        <span style={{ fontFamily: "var(--body)", fontSize: FS.b3, color: MUTE }}>{metric.label}</span>
+        {d != null && <DeltaChip d={d} good={good} unit={metric.unit} />}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: SP.sm }}>
+        <span style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: FS.d1, color: CHALK, lineHeight: 1 }}>{has ? <CountUp value={latestVal} /> : "—"}</span>
+        <span style={{ fontFamily: "var(--body)", fontSize: FS.b2, color: MUTE }}>{metric.unit}</span>
+      </div>
+      <div style={{ height: 46, marginTop: SP.md }}><Sparkline data={data} keyName={metric.key} color={metric.color} /></div>
+      {expanded && (
+        <div onClick={(e) => e.stopPropagation()} style={{ height: 168, marginTop: SP.md, borderTop: `1px solid ${LINE}`, paddingTop: SP.md }}>
+          <Chart data={data} keyName={metric.key} color={metric.color} refY={metric.refY} refLabel={metric.refLabel} refColor={metric.refColor} />
+        </div>
       )}
+      <div style={{ marginTop: SP.sm, fontFamily: "var(--body)", fontSize: FS.b4, color: "#5f6470" }}>{hint}</div>
     </div>
   );
 }
@@ -593,7 +647,7 @@ function DayCard({ week, day, done, onToggle }) {
           background: done ? "rgba(110,231,159,0.13)" : "transparent",
           border: `1px solid ${done ? GREEN : LINE}`, borderRadius: 999, padding: "6px 12px",
           fontFamily: "var(--body)", fontSize: 12, color: done ? GREEN : MUTE,
-        }}>{done ? <><span className="pop">✓</span> Done</> : "Mark done"}</button>
+        }}>{done ? <><span className="pop" style={{ display: "inline-flex" }}><Icon name="check" size={14} /></span> Done</> : "Mark done"}</button>
       </div>
       <Slot title="Warm up" items={day.warmup} />
       <Slot title="WOD" items={day.wod} />
@@ -614,7 +668,7 @@ function Slot({ title, items }) {
             <span style={{ fontFamily: "var(--mono)", fontSize: 12, color: GOLD, textAlign: "right" }}>{ex.prescription}</span>
           </div>
           {ex.cue && <div style={{ fontFamily: "var(--body)", fontSize: 12.5, color: MUTE, marginTop: 5, lineHeight: 1.55 }}>{ex.cue}</div>}
-          {ex.benchmark && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 8, fontFamily: "var(--mono)", fontSize: 11, padding: "3px 9px", borderRadius: 999, background: "rgba(255,90,60,0.14)", color: ACCENT }}>◆ Benchmark — log your max strict HSPU</div>}
+          {ex.benchmark && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 8, fontFamily: "var(--mono)", fontSize: 11, padding: "3px 9px", borderRadius: 999, background: "rgba(255,90,60,0.14)", color: ACCENT }}><Icon name="flame" size={12} /> Benchmark — log your max strict HSPU</div>}
         </div>
       ))}
     </div>
@@ -630,6 +684,68 @@ function KV({ k, v, accent }) {
   );
 }
 
+// Inline-SVG icon set (CSP-safe, no dependency). One <path> may hold several subpaths.
+const ICON_PATHS = {
+  edit: "M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z",
+  trash: "M3 6h18 M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2 M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6 M10 11v6 M14 11v6",
+  check: "M20 6L9 17l-5-5",
+  flame: "M12 2s5 3.2 5 8.5a5 5 0 0 1-10 0c0-2 1-3.6 2.2-4.7C9.7 7 11 5 12 2z",
+  chevron: "M9 6l6 6-6 6",
+  up: "M12 19V5 M6 11l6-6 6 6",
+  down: "M12 5v14 M6 13l6 6 6-6",
+  dash: "M3 11l9-8 9 8 M5 9.5V21h14V9.5",
+  program: "M4 5h16v16H4z M4 9h16 M9 3v4 M15 3v4",
+  plus: "M12 5v14 M5 12h14",
+  history: "M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z M12 8v4l2.5 1.5",
+};
+function Icon({ name, size = 18, color = "currentColor", strokeWidth = 1.6 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={strokeWidth}
+      strokeLinecap="round" strokeLinejoin="round" style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  );
+}
+
+// Duotone monogram — an inverted (handstand) figure on the brand gradient.
+function Logo({ size = 30 }) {
+  return (
+    <span style={{ width: size, height: size, borderRadius: 9, background: DUO, display: "grid", placeItems: "center", boxShadow: "0 4px 14px rgba(124,92,255,.35)", flexShrink: 0 }}>
+      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="19" r="2" fill="#fff" stroke="none" />
+        <path d="M12 17V9 M12 9l-4-5 M12 9l4-5" />
+      </svg>
+    </span>
+  );
+}
+
+// Thumb-reachable bottom navigation for the phone PWA. "+ Log" is the raised center action.
+function BottomNav({ tab, onSelect }) {
+  const items = [["dash", "Home", "dash"], ["program", "Program", "program"], ["log", "Log", "plus"], ["history", "History", "history"]];
+  return (
+    <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 50, background: "rgba(11,13,18,0.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderTop: `1px solid ${LINE}`, paddingBottom: "env(safe-area-inset-bottom)" }}>
+      <div style={{ maxWidth: 560, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-around", padding: "8px 12px" }}>
+        {items.map(([id, label, icon]) => {
+          const on = tab === id;
+          if (id === "log") {
+            return (
+              <button key={id} onClick={() => onSelect(id)} aria-label="Log a session" style={{ background: "none", border: "none", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                <span style={{ width: 48, height: 48, borderRadius: 16, display: "grid", placeItems: "center", background: DUO, boxShadow: "0 6px 18px rgba(255,90,60,.35)" }}><Icon name="plus" size={22} color="#fff" strokeWidth={2.2} /></span>
+              </button>
+            );
+          }
+          return (
+            <button key={id} onClick={() => onSelect(id)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, width: 64, color: on ? CHALK : MUTE }}>
+              <Icon name={icon} size={20} color={on ? ACCENT : MUTE} />
+              <span style={{ fontFamily: "var(--body)", fontSize: 11, fontWeight: on ? 500 : 400 }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function Shell({ children }) {
   return (
     <div style={{ minHeight: "100vh", background: INK, color: CHALK, paddingTop: "env(safe-area-inset-top)" }}>
@@ -637,7 +753,7 @@ function Shell({ children }) {
         @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap');
         :root{--display:'Space Grotesk',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;}
         *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent;}
-        html,body{background:${INK};-webkit-text-size-adjust:100%;}
+        html,body{background:${INK};-webkit-text-size-adjust:100%;font-feature-settings:"tnum","cv01";}
         input,textarea{font-size:16px;}
         input::placeholder,textarea::placeholder{color:#4a4f5a;}
         input:focus,textarea:focus{border-color:rgba(255,90,60,.55)!important;box-shadow:0 0 0 3px rgba(255,90,60,.12);}
@@ -658,44 +774,19 @@ function Shell({ children }) {
         @media (prefers-reduced-motion:reduce){.rise,.glow,.pop{animation:none!important}.lift,.cta .arrow{transition:none}}
         ::selection{background:${ACCENT};color:#fff;}
       `}</style>
-      <div style={{ fontFamily: "var(--body)", maxWidth: 1040, margin: "0 auto" }}>{children}</div>
+      <div style={{ fontFamily: "var(--body)", maxWidth: 1040, margin: "0 auto", paddingBottom: "calc(80px + env(safe-area-inset-bottom))" }}>{children}</div>
     </div>
   );
 }
 
-function Header({ tab, setTab }) {
-  const tabs = [["dash", "Dashboard"], ["program", "Program"], ["log", "+ Log"], ["history", "History"]];
+function Header() {
   return (
-    <div style={{ padding: "28px 16px 18px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: 26, letterSpacing: -0.5, lineHeight: 1, color: CHALK }}>Crossfit Workout<span style={{ color: ACCENT }}>.</span></h1>
-        <span style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE }}>strict HSPU · phase 1</span>
+    <div style={{ padding: "26px 16px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+      <Logo />
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <h1 style={{ fontFamily: "var(--display)", fontWeight: 700, fontSize: FS.d2, letterSpacing: -0.5, lineHeight: 1, color: CHALK }}>Crossfit Workout<span style={{ color: ACCENT }}>.</span></h1>
+        <span style={{ fontFamily: "var(--body)", fontSize: FS.b3, color: MUTE }}>strict HSPU · phase 1</span>
       </div>
-      <div style={{ marginTop: 20, overflowX: "auto" }}>
-        <div style={{ display: "inline-flex", gap: 3, background: "#111319", border: `1px solid ${LINE}`, borderRadius: 14, padding: 3 }}>
-          {tabs.map(([id, label]) => {
-            const on = tab === id;
-            return (
-              <button key={id} onClick={() => setTab(id)} style={{
-                background: on ? "linear-gradient(180deg,#23262f,#1b1e26)" : "transparent",
-                border: "none", cursor: "pointer", whiteSpace: "nowrap", padding: "8px 15px", borderRadius: 10,
-                fontFamily: "var(--body)", fontSize: 13, fontWeight: on ? 500 : 400, color: on ? CHALK : MUTE,
-                boxShadow: on ? "0 1px 0 rgba(255,255,255,.06) inset" : "none",
-              }}>{label}</button>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ChartPanel({ title, sub, children }) {
-  return (
-    <div style={card()}>
-      <div style={{ fontFamily: "var(--display)", fontWeight: 600, fontSize: 15, color: CHALK, marginBottom: 2 }}>{title}</div>
-      <div style={{ fontFamily: "var(--body)", fontSize: 12, color: MUTE, marginBottom: 14 }}>{sub}</div>
-      <div style={{ height: 180 }}>{children}</div>
     </div>
   );
 }
